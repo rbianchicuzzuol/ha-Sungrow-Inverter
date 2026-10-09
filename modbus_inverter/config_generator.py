@@ -23,6 +23,7 @@
 import getopt
 import sys
 import yaml
+from sensor_catalog import additional_sensors
 ##Load options
 options = {'inverter':{},'exports':[{}]}
 sensors =[]
@@ -203,7 +204,13 @@ if options['inverter']['level'] >= 2:
     'register': "total_reactive_power", 'dev_class': "power",
     'state_class': "measurement"})
   
-options['exports'][0]['ha_sensors']= sensors
+# Keep existing entity identifiers; add only registers not already exposed.
+known = {entry['register'] for entry in sensors}
+for entry in additional_sensors():
+    if entry['register'] not in known:
+        sensors.append(entry)
+        known.add(entry['register'])
+options['exports'][0]['ha_sensors'] = sensors
 
 with open('/data/config.sg', 'w', encoding='utf-8') as yaml_file:
     yaml.dump(options, yaml_file, default_flow_style=False)

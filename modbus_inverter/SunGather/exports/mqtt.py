@@ -1,5 +1,6 @@
 import logging
 import json
+from sensor_catalog import calculate
 import paho.mqtt.client as mqtt
 
 class export_mqtt(object):
@@ -9,6 +10,7 @@ class export_mqtt(object):
         self.mqtt_queue = []
         self.ha_discovery_published = False
         self.last_state = {}
+        self.discovered_registers = set()
 
     # Configure MQTT
     def configure(self, config, inverter):
@@ -46,7 +48,8 @@ class export_mqtt(object):
 
         if self.mqtt_config['homeassistant']:
             for ha_sensor in config.get('ha_sensors'):
-                if not inverter.validateRegister(ha_sensor['register']):
+                requirements = ha_sensor.get('requires', [ha_sensor['register']])
+                if not ha_sensor.get('always') and not all(inverter.validateRegister(key) for key in requirements):
                     logging.debug(f"MQTT: Skipping unavailable register {ha_sensor['register']}")
                     continue
                 else:
@@ -59,6 +62,7 @@ class export_mqtt(object):
             logging.error(f"MQTT: Connection refused, code: {rc}")
             return
         self.ha_discovery_published = False
+        self.discovered_registers.clear()
         logging.info(f"MQTT: Connected to {client._host}:{client._port}")
 
     def on_disconnect(self, client, userdata, rc):
@@ -80,6 +84,8 @@ class export_mqtt(object):
             key: value for key, value in inverter.latest_scrape.items()
             if value is not None and value != ''
         })
+        if inverter.latest_scrape:
+            self.last_state.update(calculate(inverter.latest_scrape))
         if not self.last_state:
             return False
         try:
@@ -96,17 +102,21 @@ class export_mqtt(object):
         ).mid)
         logging.info(f"MQTT: Published")
 
-        if self.mqtt_config['homeassistant'] and not self.ha_discovery_published:
+        if self.mqtt_config['homeassistant']:
             for ha_sensor in self.ha_sensors:
+                register = ha_sensor['register']
+                if register in self.discovered_registers or register not in self.last_state:
+                    continue
                 config_msg = {}
                 if ha_sensor.get('name'):
                     ha_topic = 'homeassistant/' + ha_sensor.get('sensor_type', 'sensor') + '/inverter/' + self.cleanName(ha_sensor.get('name')) + '/config'
                     config_msg['name'] = "Inverter " + ha_sensor.get('name')
                     config_msg['unique_id'] = "inverter_" + self.cleanName(ha_sensor.get('name'))
                 config_msg['state_topic'] = self.mqtt_config['topic']
-                config_msg['value_template'] = "{{ value_json." + ha_sensor.get('register') + " }}"
-                if inverter.getRegisterUnit(ha_sensor.get('register')):
-                    config_msg['unit_of_measurement'] = inverter.getRegisterUnit(ha_sensor.get('register'))
+                config_msg['value_template'] = "{{ value_json." + ha_sensor.get('register') + " | default('') }}"
+                unit = ha_sensor.get('unit') or inverter.getRegisterUnit(ha_sensor.get('register'))
+                if unit:
+                    config_msg['unit_of_measurement'] = unit
                 if ha_sensor.get('dev_class'):
                     config_msg['device_class'] = ha_sensor.get('dev_class')
                 if ha_sensor.get('state_class'):
@@ -120,7 +130,8 @@ class export_mqtt(object):
 
                 logging.debug(f'MQTT: Topic; {ha_topic}, Message: {config_msg}')
                 self.mqtt_queue.append(self.mqtt_client.publish(ha_topic, json.dumps(config_msg), retain=True, qos=1).mid)
+                self.discovered_registers.add(register)
             self.ha_discovery_published = True
-            logging.info("MQTT: Published Home Assistant Discovery messages")
+            logging.debug("MQTT: Updated Home Assistant Discovery messages")
 
         return True

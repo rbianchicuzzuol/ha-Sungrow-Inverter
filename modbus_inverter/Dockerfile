@@ -18,6 +18,7 @@ RUN apk add --no-cache python3 py3-pip \
 COPY SunGather/ /app/
 COPY run.sh /
 COPY config_generator.py /
+ENV PYTHONPATH=/app
 
 # Install requirements for add-on
 RUN sed -i 's/\r$//' /run.sh && chmod a+x /run.sh

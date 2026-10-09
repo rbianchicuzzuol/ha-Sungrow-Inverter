@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.9.5
+
+- Amplia descoberta MQTT com energia, MPPT, rede, status e diagnóstico.
+- Adiciona potência MPPT, horas equivalentes, utilização, eficiência estimada e corrente equivalente estimada.
+- Publica horário da última leitura com sucesso.
+- Usa DETAIL como padrão em instalações novas.
+
+
 ## 0.3.9.4
 
 - Publica valores MQTT com retain e QoS 1 para recuperar a última leitura.

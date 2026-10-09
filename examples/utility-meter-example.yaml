@@ -1,0 +1,14 @@
+# Exemplo para mesclar no configuration.yaml do Home Assistant.
+# Ajuste a entidade de origem para seu sensor REAL de geração total em kWh.
+# Não envie este conteúdo como configuração de um app.
+utility_meter:
+  sungrow_geracao_mensal:
+    name: Sungrow Geração mensal calculada
+    source: sensor.inverter_total_generation
+    cycle: monthly
+    always_available: true
+  sungrow_geracao_anual:
+    name: Sungrow Geração anual calculada
+    source: sensor.inverter_total_generation
+    cycle: yearly
+    always_available: true
