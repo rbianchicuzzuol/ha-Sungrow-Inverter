@@ -1,7 +1,5 @@
 # Sungrow Inverter para Home Assistant
 
-![Sungrow Inverter](modbus_inverter/icon.png)
-
 App baseado em SunGather para ler inversores Sungrow pela rede e publicar dados e descoberta de sensores no MQTT do Home Assistant.
 
 ## Instalação
